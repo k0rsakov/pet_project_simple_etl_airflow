@@ -1,9 +1,8 @@
 import json
 from datetime import timedelta
-from io import StringIO
+from io import BytesIO
 from typing import Any
 
-import boto3
 import pandas as pd
 import pendulum
 import requests
@@ -12,9 +11,11 @@ from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from minio import Minio
 
 MINIO_A_KEY = Variable.get("access_key")
 MINIO_S_KEY = Variable.get("secret_key")
+MINIO_ENDPOINT = Variable.get("minio_endpoint", "localhost:9000")  # добавьте endpoint в Variables
 WEATHER_API_KEY = Variable.get("weather_api_key")
 
 default_args = {
@@ -100,17 +101,34 @@ def weather_dict_to_raw_df(data: dict) -> pd.DataFrame:
     return pd.DataFrame([row])
 
 
-def get_s3_client():
+def get_minio_client():
     """
-    Создает S3 клиент с учетными данными из Variables.
+    Создает MinIO клиент с учетными данными из Variables.
 
-    :return: Объект boto3 S3 клиента.
+    :return: Объект MinIO клиента.
     """
-    return boto3.client(
-        "s3",
-        aws_access_key_id=MINIO_A_KEY,
-        aws_secret_access_key=MINIO_S_KEY,
+    return Minio(
+        endpoint=MINIO_ENDPOINT,
+        access_key=MINIO_A_KEY,
+        secret_key=MINIO_S_KEY,
+        secure=False,  # Установите True если используете HTTPS
     )
+
+
+def get_storage_options() -> dict:
+    """
+    Получает параметры подключения для pandas S3 operations.
+
+    :return: Словарь с параметрами подключения для pandas.
+    """
+    protocol = "http"  # Измените на "https" если используете HTTPS
+    endpoint_url = f"{protocol}://{MINIO_ENDPOINT}"
+
+    return {
+        "key": MINIO_A_KEY,
+        "secret": MINIO_S_KEY,
+        "client_kwargs": {"endpoint_url": endpoint_url},
+    }
 
 
 def extract_weather_data_s3(**context: dict[str, Any]) -> str:
@@ -129,21 +147,30 @@ def extract_weather_data_s3(**context: dict[str, Any]) -> str:
         city_name="Irkutsk",
     )
 
-    # Подключение к S3
-    s3_client = get_s3_client()
+    # Подключение к MinIO
+    minio_client = get_minio_client()
     bucket_name = "prod"
-    s3_key = f"weather/raw/weather_{execution_date}.json"
+    object_name = f"weather/raw/weather_{execution_date}.json"
 
-    # Сохраняем в S3
-    s3_client.put_object(
-        Bucket=bucket_name,
-        Key=s3_key,
-        Body=json.dumps(weather_data, ensure_ascii=False, indent=2),
-        ContentType="application/json",
+    # Убеждаемся что bucket существует
+    if not minio_client.bucket_exists(bucket_name):
+        minio_client.make_bucket(bucket_name)
+
+    # Преобразуем данные в JSON строку
+    json_data = json.dumps(weather_data, ensure_ascii=False, indent=2)
+    json_bytes = json_data.encode("utf-8")
+
+    # Сохраняем в MinIO
+    minio_client.put_object(
+        bucket_name=bucket_name,
+        object_name=object_name,
+        data=BytesIO(json_bytes),
+        length=len(json_bytes),
+        content_type="application/json",
     )
 
-    print(f"Weather data saved to s3://{bucket_name}/{s3_key}")
-    return s3_key
+    print(f"Weather data saved to s3://{bucket_name}/{object_name}")
+    return object_name
 
 
 def transform_weather_data_s3(**context: dict[str, Any]) -> str:
@@ -155,34 +182,33 @@ def transform_weather_data_s3(**context: dict[str, Any]) -> str:
     """
     execution_date = context["data_interval_end"].format("YYYY-MM-DD")
     bucket_name = "prod"
-    json_s3_key = f"weather/raw/weather_{execution_date}.json"
-    csv_s3_key = f"weather/processed/weather_{execution_date}.csv"
+    json_object_name = f"weather/raw/weather_{execution_date}.json"
+    csv_object_name = f"weather/processed/weather_{execution_date}.csv"
 
-    # Подключение к S3
-    s3_client = get_s3_client()
+    # Подключение к MinIO
+    minio_client = get_minio_client()
 
-    # Читаем JSON файл из S3
-    response = s3_client.get_object(Bucket=bucket_name, Key=json_s3_key)
-    weather_data = json.loads(response["Body"].read().decode("utf-8"))
+    # Читаем JSON файл из MinIO
+    response = minio_client.get_object(bucket_name, json_object_name)
+    weather_data = json.loads(response.data.decode("utf-8"))
 
     # Преобразуем в DataFrame
     df = weather_dict_to_raw_df(weather_data)
 
-    # Конвертируем DataFrame в CSV строку
-    csv_buffer = StringIO()
-    df.to_csv(csv_buffer, index=False, encoding="utf-8")
-    csv_content = csv_buffer.getvalue()
+    # Сохраняем DataFrame как CSV в S3 используя pandas
+    storage_options = get_storage_options()
+    s3_path = f"s3://{bucket_name}/{csv_object_name}"
 
-    # Сохраняем CSV в S3
-    s3_client.put_object(
-        Bucket=bucket_name,
-        Key=csv_s3_key,
-        Body=csv_content,
-        ContentType="text/csv",
+    df.to_csv(
+        path_or_buf=s3_path,
+        index=False,
+        escapechar="\\",
+        compression=None,  # Без компрессии для простоты
+        storage_options=storage_options,
     )
 
-    print(f"Transformed data saved to s3://{bucket_name}/{csv_s3_key}")
-    return csv_s3_key
+    print(f"Transformed data saved to {s3_path}")
+    return csv_object_name
 
 
 def load_to_postgres_s3(**context: dict[str, Any]) -> None:
@@ -194,17 +220,17 @@ def load_to_postgres_s3(**context: dict[str, Any]) -> None:
     """
     execution_date = context["data_interval_end"].format("YYYY-MM-DD")
     bucket_name = "prod"
-    csv_s3_key = f"weather/processed/weather_{execution_date}.csv"
+    csv_object_name = f"weather/processed/weather_{execution_date}.csv"
 
-    # Подключение к S3
-    s3_client = get_s3_client()
+    # Читаем CSV файл из S3 используя pandas
+    storage_options = get_storage_options()
+    s3_path = f"s3://{bucket_name}/{csv_object_name}"
 
-    # Читаем CSV файл из S3
-    response = s3_client.get_object(Bucket=bucket_name, Key=csv_s3_key)
-    csv_content = response["Body"].read().decode("utf-8")
-
-    # Создаем DataFrame из CSV содержимого
-    df = pd.read_csv(StringIO(csv_content))
+    df = pd.read_csv(
+        filepath_or_buffer=s3_path,
+        storage_options=storage_options,
+        compression=None,  # Без компрессии
+    )
 
     # Подключение к PostgreSQL через PostgresHook
     postgres_hook = PostgresHook(postgres_conn_id="pg_con")
@@ -213,7 +239,7 @@ def load_to_postgres_s3(**context: dict[str, Any]) -> None:
     # Загружаем данные в таблицу
     df.to_sql(name="weather_raw", con=engine, if_exists="append", index=False)
 
-    print(f"Data loaded to PostgreSQL from s3://{bucket_name}/{csv_s3_key}")
+    print(f"Data loaded to PostgreSQL from {s3_path}")
 
 
 def cleanup_s3_files(**context: dict[str, Any]) -> None:
@@ -226,29 +252,29 @@ def cleanup_s3_files(**context: dict[str, Any]) -> None:
     execution_date = context["data_interval_end"].format("YYYY-MM-DD")
     bucket_name = "prod"
 
-    # Подключение к S3
-    s3_client = get_s3_client()
+    # Подключение к MinIO
+    minio_client = get_minio_client()
 
     # Список файлов для удаления
-    files_to_delete = [
+    objects_to_delete = [
         f"weather/raw/weather_{execution_date}.json",
         f"weather/processed/weather_{execution_date}.csv",
     ]
 
     # Удаляем файлы
-    for s3_key in files_to_delete:
+    for object_name in objects_to_delete:
         try:
-            s3_client.delete_object(Bucket=bucket_name, Key=s3_key)
-            print(f"Removed file: s3://{bucket_name}/{s3_key}")
+            minio_client.remove_object(bucket_name, object_name)
+            print(f"Removed file: s3://{bucket_name}/{object_name}")
         except Exception as e:
-            print(f"Error removing s3://{bucket_name}/{s3_key}: {e}")
+            print(f"Error removing s3://{bucket_name}/{object_name}: {e}")
 
 
 with DAG(
-        dag_id="weather_etl_s3",
+        dag_id="weather_etl_s3_minio",
         schedule_interval="0 10 * * *",
         default_args=default_args,
-        tags=["weather", "etl", "s3"],
+        tags=["weather", "etl", "s3", "minio"],
         concurrency=1,
         max_active_tasks=1,
         max_active_runs=1,
