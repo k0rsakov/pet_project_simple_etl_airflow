@@ -9,7 +9,7 @@ def create_airflow_variable(
     description: str | None = None,
     airflow_api_url: str = "http://localhost:8080/api/v1/variables",
     user_name: str | None = None,
-    password: str | None= None,
+    password_auth: str | None= None,
 ):
     """
     Создаёт переменную в Apache Airflow через REST API.
@@ -19,7 +19,7 @@ def create_airflow_variable(
     :param description: Описание переменной (опционально)
     :param airflow_api_url: URL Airflow API для переменных
     :param user_name: Имя пользователя Airflow API
-    :param password: Пароль пользователя Airflow API
+    :param password_auth: Пароль пользователя Airflow API
     """
     headers = {
         "Content-Type": "application/json",
@@ -36,7 +36,7 @@ def create_airflow_variable(
     try:
         response = requests.post(
             url=airflow_api_url,
-            auth=(user_name, password),
+            auth=(user_name, password_auth),
             data=json.dumps(data),
             headers=headers,
             timeout=600,
@@ -60,7 +60,7 @@ create_airflow_variable(
     key="4MevhvVdQClrOpIL37l8",
     description="access_key для S3 бакета",
     user_name="airflow",
-    password="airflow",  # noqa: S106
+    password_auth="airflow",  # noqa: S106
 )
 
 create_airflow_variable(
@@ -68,7 +68,7 @@ create_airflow_variable(
     key="m0lpCnpOM3wtyloX7FeWskDOuZ9CRPZJBXhY475f",
     description="secret_key для S3 бакета",
     user_name="airflow",
-    password="airflow",  # noqa: S106
+    password_auth="airflow",  # noqa: S106
 )
 
 create_airflow_variable(
@@ -76,5 +76,5 @@ create_airflow_variable(
     value="",
     description="API ключ для weatherapi.com",
     user_name="airflow",
-    password="airflow",  # noqa: S106
+    password_auth="airflow",  # noqa: S106
 )
