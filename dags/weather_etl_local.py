@@ -12,8 +12,6 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-MINIO_A_KEY = Variable.get("access_key")
-MINIO_S_KEY = Variable.get("secret_key")
 WEATHER_API_KEY = Variable.get("weather_api_key")
 
 default_args = {
