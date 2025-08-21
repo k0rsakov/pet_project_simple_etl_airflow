@@ -56,16 +56,16 @@ def create_airflow_variable(
 
 
 create_airflow_variable(
-    value="access_key",
-    key="4MevhvVdQClrOpIL37l8",
+    key="access_key",
+    value="4MevhvVdQClrOpIL37l8",
     description="access_key для S3 бакета",
     user_name="airflow",
     password_auth="airflow",  # noqa: S106
 )
 
 create_airflow_variable(
-    value="secret_key",
-    key="m0lpCnpOM3wtyloX7FeWskDOuZ9CRPZJBXhY475f",
+    key="secret_key",
+    value="m0lpCnpOM3wtyloX7FeWskDOuZ9CRPZJBXhY475f",
     description="secret_key для S3 бакета",
     user_name="airflow",
     password_auth="airflow",  # noqa: S106

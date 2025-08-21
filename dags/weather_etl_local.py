@@ -7,9 +7,15 @@ import requests
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 import pendulum
-from airflow.providers.postgres.hooks.postgres import PostgresHook
+# from airflow.providers.postgres.hooks.postgres import SQLExecuteQueryOperator
+from airflow.operators.empty import EmptyOperator
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 # from airflow.utils.dates import days_ago
-
+from airflow.models import Variable
+# MINIO_ENDPOINT = Variable.get("")
+MINIO_A_KEY = Variable.get("access_key")
+MINIO_S_KEY = Variable.get("secret_key")
+WEATHER_API_KEY = Variable.get("weather_api_key")
 default_args = {
     "owner": "i.korsakov",
     "depends_on_past": False,
@@ -91,7 +97,7 @@ def extract_weather_data(**context):
     # Получаем данные о погоде
     weather_data = get_weather_history(
         date=execution_date,
-        api_key="your_api_key_here",  # Замените на ваш API ключ
+        api_key=WEATHER_API_KEY,  # Замените на ваш API ключ
         city_name="Irkutsk",
     )
 
@@ -130,9 +136,9 @@ def load_to_postgres(**context):
     # Читаем CSV файл
     df = pd.read_csv(csv_file_path, encoding="utf-8")
 
-    # Подключение к PostgreSQL через PostgresHook
-    postgres_hook = PostgresHook(postgres_conn_id="pg_con")
-    engine = postgres_hook.get_sqlalchemy_engine()
+    # Подключение к PostgreSQL через SQLExecuteQueryOperator
+    postgres_hook = SQLExecuteQueryOperator(conn_id="pg_con")
+    engine = postgres_hook.get_db_hook()
 
     # Загружаем данные в таблицу (идемпотентность через replace)
     df.to_sql("weather_raw", engine, if_exists="append", index=False)
@@ -159,8 +165,10 @@ with DAG(
     catchup=False,
     tags=["weather", "etl", "local"],
 ) as dag:
+    start = EmptyOperator(
+        task_id="start",
+    )
 
-    # Определяем задачи
     extract_task = PythonOperator(
         task_id="extract_weather_data",
         python_callable=extract_weather_data,
@@ -184,7 +192,10 @@ with DAG(
         python_callable=cleanup_files,
         dag=dag,
     )
+    end = EmptyOperator(
+        task_id="end",
+    )
 
     # Определяем зависимости
-    extract_task >> transform_task >> load_task >> cleanup_task
+    start >> extract_task >> transform_task >> load_task >> cleanup_task >> end
 
