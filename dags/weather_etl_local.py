@@ -190,10 +190,12 @@ def cleanup_files(**context: dict[str, Any]) -> None:
 
 with DAG(
         dag_id="weather_etl_local",
-        default_args=default_args,
-        description="Weather ETL with local file storage",
         schedule_interval="0 10 * * *",
+        default_args=default_args,
         tags=["weather", "etl", "local"],
+        concurrency=1,
+        max_active_tasks=1,
+        max_active_runs=1,
 ) as dag:
     start = EmptyOperator(
         task_id="start",
