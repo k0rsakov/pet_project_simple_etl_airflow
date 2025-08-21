@@ -104,7 +104,7 @@ def extract_weather_data(**context: dict[str, Any]) -> str:
     :param context: Контекст DAG, содержащий информацию о выполнении задачи.
     :return: Путь к сохраненному JSON файлу.
     """
-    execution_date = context["ds"]  # Дата выполнения в формате YYYY-MM-DD
+    execution_date = context["data_interval_end"].format("YYYY-MM-DD")
 
     # Создаем директорию для файлов если её нет
     weather_data_path = Path("/tmp/weather_data")
@@ -132,7 +132,7 @@ def transform_weather_data(**context: dict[str, Any]) -> str:
     :param context: Контекст DAG, содержащий информацию о выполнении задачи.
     :return: Путь к сохраненному CSV файлу.
     """
-    execution_date = context["ds"]
+    execution_date = context["data_interval_end"].format("YYYY-MM-DD")
     json_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.json")
 
     # Читаем JSON файл
@@ -156,7 +156,7 @@ def load_to_postgres(**context: dict[str, Any]) -> None:
     :param context: Контекст DAG, содержащий информацию о выполнении задачи.
     :return: Функция ничего не возвращает, она производит загрузку данных в базу.
     """
-    execution_date = context["ds"]
+    execution_date = context["data_interval_end"].format("YYYY-MM-DD")
     csv_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.csv")
 
     # Читаем CSV файл
@@ -178,7 +178,7 @@ def cleanup_files(**context: dict[str, Any]) -> None:
     :param context: Контекст DAG, содержащий информацию о выполнении задачи.
     :return: Функция ничего не возвращает, она производит очистку временных файлов.
     """
-    execution_date = context["ds"]
+    execution_date = context["data_interval_end"].format("YYYY-MM-DD")
     json_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.json")
     csv_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.csv")
 
