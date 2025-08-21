@@ -10,6 +10,7 @@ import pendulum
 # from airflow.providers.postgres.hooks.postgres import SQLExecuteQueryOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+from airflow.providers.common.sql.hooks.sql import DbApiHook
 # from airflow.utils.dates import days_ago
 from airflow.models import Variable
 # MINIO_ENDPOINT = Variable.get("")
@@ -137,11 +138,11 @@ def load_to_postgres(**context):
     df = pd.read_csv(csv_file_path, encoding="utf-8")
 
     # Подключение к PostgreSQL через SQLExecuteQueryOperator
-    postgres_hook = SQLExecuteQueryOperator(conn_id="pg_con")
-    engine = postgres_hook.get_db_hook()
+    postgres_hook = DbApiHook(conn_name_attr="pg_con")
+    engine = postgres_hook.get_uri()
 
     # Загружаем данные в таблицу (идемпотентность через replace)
-    df.to_sql("weather_raw", engine, if_exists="append", index=False)
+    df.to_sql(name="weather_raw", con=engine, if_exists="append", index=False)
 
     print(f"Data loaded to PostgreSQL from {csv_file_path}")
 
@@ -172,30 +173,25 @@ with DAG(
     extract_task = PythonOperator(
         task_id="extract_weather_data",
         python_callable=extract_weather_data,
-        dag=dag,
     )
 
     transform_task = PythonOperator(
         task_id="transform_weather_data",
         python_callable=transform_weather_data,
-        dag=dag,
     )
 
     load_task = PythonOperator(
         task_id="load_to_postgres",
         python_callable=load_to_postgres,
-        dag=dag,
     )
 
     cleanup_task = PythonOperator(
         task_id="cleanup_files",
         python_callable=cleanup_files,
-        dag=dag,
     )
     end = EmptyOperator(
         task_id="end",
     )
 
-    # Определяем зависимости
     start >> extract_task >> transform_task >> load_task >> cleanup_task >> end
 
