@@ -165,4 +165,5 @@ ruff = "0.12.3"
 # Добавленные зависимости
 pandas = "2.2.3"
 minio = "7.2.15"
-apache-airflow==2.10.4
+apache-airflow = "2.10.4"
+requests = "2.32.5"

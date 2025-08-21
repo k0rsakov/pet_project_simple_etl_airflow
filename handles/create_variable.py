@@ -1,0 +1,70 @@
+import requests
+import json
+
+def create_airflow_variable(
+    key: str | None= None,
+    value: str |None= None,
+    description: str | None = None,
+    airflow_api_url: str = "http://localhost:8080/api/v1/variables",
+    user_name: str | None = None,
+    password: str | None= None,
+):
+    """
+    Создаёт переменную в Apache Airflow через REST API.
+
+    :param key: Ключ переменной (должен быть уникальным)
+    :param value: Значение переменной (строка)
+    :param description: Описание переменной (опционально)
+    :param airflow_api_url: URL Airflow API для переменных
+    :param user_name: Имя пользователя Airflow API
+    :param password: Пароль пользователя Airflow API
+    """
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    data = {
+        "key": key,
+        "value": value,
+    }
+
+    if description is not None:
+        data["description"] = description
+
+    try:
+        response = requests.post(
+            url=airflow_api_url,
+            auth=(user_name, password),
+            data=json.dumps(data),
+            headers=headers,
+            timeout=600,
+        )
+
+        if response.status_code in {200, 201}:
+            print(f"Переменная '{key}' успешно создана.")
+        elif response.status_code == 409:  # noqa: PLR2004
+            print(f"Переменная '{key}' уже существует.")
+        else:
+            print(f"Ошибка при создании переменной '{key}': {response.status_code} - {response.text}")
+            response.raise_for_status()
+
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка соединения с Airflow API: {e}")
+        raise
+
+
+create_airflow_variable(
+    value="access_key",
+    key="4MevhvVdQClrOpIL37l8",
+    description="access_key для S3 бакета",
+    user_name="airflow",
+    password="airflow",  # noqa: S106
+)
+
+create_airflow_variable(
+    value="secret_key",
+    key="m0lpCnpOM3wtyloX7FeWskDOuZ9CRPZJBXhY475f",
+    description="secret_key для S3 бакета",
+    user_name="airflow",
+    password="airflow",  # noqa: S106
+)
