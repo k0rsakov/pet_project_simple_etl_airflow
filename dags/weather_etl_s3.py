@@ -1,7 +1,6 @@
 import json
 from datetime import timedelta
 from io import StringIO
-from pathlib import Path
 from typing import Any
 
 import boto3
@@ -31,7 +30,8 @@ default_args = {
 
 
 def get_weather_history(date: str, api_key: str, city_name: str) -> dict:
-    """Получает исторические данные о погоде для указанного города и даты.
+    """
+    Получает исторические данные о погоде для указанного города и даты.
 
     :param date: Дата в формате 'YYYY-MM-DD'.
     :param api_key: Ключ API для доступа к weatherapi.com.
@@ -64,7 +64,8 @@ def get_weather_history(date: str, api_key: str, city_name: str) -> dict:
 
 
 def weather_dict_to_raw_df(data: dict) -> pd.DataFrame:
-    """Преобразует словарь погоды в "полуплоский" DataFrame для RAW-слоя.
+    """
+    Преобразует словарь погоды в "полуплоский" DataFrame для RAW-слоя.
 
     :param data: Словарь, полученный от WeatherAPI.
     :return: pd.DataFrame с одной строкой, содержащей обработанные данные о погоде.
@@ -100,19 +101,21 @@ def weather_dict_to_raw_df(data: dict) -> pd.DataFrame:
 
 
 def get_s3_client():
-    """Создает S3 клиент с учетными данными из Variables.
+    """
+    Создает S3 клиент с учетными данными из Variables.
 
     :return: Объект boto3 S3 клиента.
     """
     return boto3.client(
-        's3',
+        "s3",
         aws_access_key_id=MINIO_A_KEY,
-        aws_secret_access_key=MINIO_S_KEY
+        aws_secret_access_key=MINIO_S_KEY,
     )
 
 
 def extract_weather_data_s3(**context: dict[str, Any]) -> str:
-    """Получение данных о погоде и сохранение в S3.
+    """
+    Получение данных о погоде и сохранение в S3.
 
     :param context: Контекст DAG, содержащий информацию о выполнении задачи.
     :return: S3 ключ сохраненного JSON файла.
@@ -136,7 +139,7 @@ def extract_weather_data_s3(**context: dict[str, Any]) -> str:
         Bucket=bucket_name,
         Key=s3_key,
         Body=json.dumps(weather_data, ensure_ascii=False, indent=2),
-        ContentType='application/json'
+        ContentType="application/json",
     )
 
     print(f"Weather data saved to s3://{bucket_name}/{s3_key}")
@@ -144,7 +147,8 @@ def extract_weather_data_s3(**context: dict[str, Any]) -> str:
 
 
 def transform_weather_data_s3(**context: dict[str, Any]) -> str:
-    """Преобразование JSON в CSV в S3.
+    """
+    Преобразование JSON в CSV в S3.
 
     :param context: Контекст DAG, содержащий информацию о выполнении задачи.
     :return: S3 ключ сохраненного CSV файла.
@@ -159,14 +163,14 @@ def transform_weather_data_s3(**context: dict[str, Any]) -> str:
 
     # Читаем JSON файл из S3
     response = s3_client.get_object(Bucket=bucket_name, Key=json_s3_key)
-    weather_data = json.loads(response['Body'].read().decode('utf-8'))
+    weather_data = json.loads(response["Body"].read().decode("utf-8"))
 
     # Преобразуем в DataFrame
     df = weather_dict_to_raw_df(weather_data)
 
     # Конвертируем DataFrame в CSV строку
     csv_buffer = StringIO()
-    df.to_csv(csv_buffer, index=False, encoding='utf-8')
+    df.to_csv(csv_buffer, index=False, encoding="utf-8")
     csv_content = csv_buffer.getvalue()
 
     # Сохраняем CSV в S3
@@ -174,7 +178,7 @@ def transform_weather_data_s3(**context: dict[str, Any]) -> str:
         Bucket=bucket_name,
         Key=csv_s3_key,
         Body=csv_content,
-        ContentType='text/csv'
+        ContentType="text/csv",
     )
 
     print(f"Transformed data saved to s3://{bucket_name}/{csv_s3_key}")
@@ -182,7 +186,8 @@ def transform_weather_data_s3(**context: dict[str, Any]) -> str:
 
 
 def load_to_postgres_s3(**context: dict[str, Any]) -> None:
-    """Загрузка данных в PostgreSQL из S3.
+    """
+    Загрузка данных в PostgreSQL из S3.
 
     :param context: Контекст DAG, содержащий информацию о выполнении задачи.
     :return: Функция ничего не возвращает, она производит загрузку данных в базу.
@@ -196,7 +201,7 @@ def load_to_postgres_s3(**context: dict[str, Any]) -> None:
 
     # Читаем CSV файл из S3
     response = s3_client.get_object(Bucket=bucket_name, Key=csv_s3_key)
-    csv_content = response['Body'].read().decode('utf-8')
+    csv_content = response["Body"].read().decode("utf-8")
 
     # Создаем DataFrame из CSV содержимого
     df = pd.read_csv(StringIO(csv_content))
@@ -212,7 +217,8 @@ def load_to_postgres_s3(**context: dict[str, Any]) -> None:
 
 
 def cleanup_s3_files(**context: dict[str, Any]) -> None:
-    """Удаление файлов из S3.
+    """
+    Удаление файлов из S3.
 
     :param context: Контекст DAG, содержащий информацию о выполнении задачи.
     :return: Функция ничего не возвращает, она производит очистку файлов из S3.
@@ -226,7 +232,7 @@ def cleanup_s3_files(**context: dict[str, Any]) -> None:
     # Список файлов для удаления
     files_to_delete = [
         f"weather/raw/weather_{execution_date}.json",
-        f"weather/processed/weather_{execution_date}.csv"
+        f"weather/processed/weather_{execution_date}.csv",
     ]
 
     # Удаляем файлы
