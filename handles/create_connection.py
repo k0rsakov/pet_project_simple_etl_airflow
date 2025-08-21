@@ -1,5 +1,6 @@
-import requests
 import json
+
+import requests
 
 
 def create_airflow_connection(

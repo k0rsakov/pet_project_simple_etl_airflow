@@ -3,27 +3,26 @@ import os
 from datetime import timedelta
 
 import pandas as pd
+import pendulum
 import requests
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-import pendulum
-# from airflow.providers.postgres.hooks.postgres import SQLExecuteQueryOperator
-from airflow.operators.empty import EmptyOperator
-from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
-from airflow.providers.common.sql.hooks.sql import DbApiHook
-# from airflow.utils.dates import days_ago
 from airflow.models import Variable
-# MINIO_ENDPOINT = Variable.get("")
+from airflow.operators.empty import EmptyOperator
+from airflow.operators.python import PythonOperator
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+
 MINIO_A_KEY = Variable.get("access_key")
 MINIO_S_KEY = Variable.get("secret_key")
 WEATHER_API_KEY = Variable.get("weather_api_key")
+
 default_args = {
     "owner": "i.korsakov",
-    "depends_on_past": False,
+    "depends_on_past": True,
     "start_date": pendulum.datetime(2025, 8, 10),
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
+    "catchup": True,
     "retry_delay": timedelta(minutes=5),
 }
 
@@ -98,7 +97,7 @@ def extract_weather_data(**context):
     # Получаем данные о погоде
     weather_data = get_weather_history(
         date=execution_date,
-        api_key=WEATHER_API_KEY,  # Замените на ваш API ключ
+        api_key=WEATHER_API_KEY,
         city_name="Irkutsk",
     )
 
@@ -137,11 +136,11 @@ def load_to_postgres(**context):
     # Читаем CSV файл
     df = pd.read_csv(csv_file_path, encoding="utf-8")
 
-    # Подключение к PostgreSQL через SQLExecuteQueryOperator
-    postgres_hook = DbApiHook(conn_name_attr="pg_con")
-    engine = postgres_hook.get_uri()
+    # Подключение к PostgreSQL через PostgresHook
+    postgres_hook = PostgresHook(postgres_conn_id="pg_con")
+    engine = postgres_hook.get_sqlalchemy_engine()
 
-    # Загружаем данные в таблицу (идемпотентность через replace)
+    # Загружаем данные в таблицу (идемпотентность через append)
     df.to_sql(name="weather_raw", con=engine, if_exists="append", index=False)
 
     print(f"Data loaded to PostgreSQL from {csv_file_path}")
@@ -159,12 +158,11 @@ def cleanup_files(**context):
             print(f"Removed file: {file_path}")
 
 with DAG(
-    "weather_etl_local",
-    default_args=default_args,
-    description="Weather ETL with local file storage",
-    schedule_interval=timedelta(days=1),
-    catchup=False,
-    tags=["weather", "etl", "local"],
+        dag_id="weather_etl_local",
+        default_args=default_args,
+        description="Weather ETL with local file storage",
+        schedule_interval="0 10 * * *",
+        tags=["weather", "etl", "local"],
 ) as dag:
     start = EmptyOperator(
         task_id="start",
@@ -189,9 +187,9 @@ with DAG(
         task_id="cleanup_files",
         python_callable=cleanup_files,
     )
+
     end = EmptyOperator(
         task_id="end",
     )
 
     start >> extract_task >> transform_task >> load_task >> cleanup_task >> end
-
