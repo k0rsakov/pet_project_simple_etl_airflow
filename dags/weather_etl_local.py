@@ -1,6 +1,7 @@
 import json
-import os
 from datetime import timedelta
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pendulum
@@ -30,6 +31,13 @@ default_args = {
 def get_weather_history(date: str, api_key: str, city_name: str) -> dict:
     """
     Получает исторические данные о погоде для указанного города и даты.
+
+    :param date: Дата в формате 'YYYY-MM-DD'.
+    :param api_key: Ключ API для доступа к weatherapi.com.
+    :param city_name: Название города (например, 'Irkutsk').
+    :return: Словарь с данными о погоде.
+    :raises requests.exceptions.HTTPError: При HTTP ошибках.
+    :raises requests.exceptions.RequestException: При ошибках запроса.
     """
     url = "https://api.weatherapi.com/v1/history.json"
 
@@ -56,6 +64,9 @@ def get_weather_history(date: str, api_key: str, city_name: str) -> dict:
 def weather_dict_to_raw_df(data: dict) -> pd.DataFrame:
     """
     Преобразует словарь погоды в "полуплоский" DataFrame для RAW-слоя.
+
+    :param data: Словарь, полученный от WeatherAPI.
+    :return: pd.DataFrame с одной строкой, содержащей обработанные данные о погоде.
     """
     row = {}
 
@@ -72,9 +83,8 @@ def weather_dict_to_raw_df(data: dict) -> pd.DataFrame:
 
     # 2. Извлекаем дату прогноза (forecastday -> date)
     forecastday = None
-    if data.get("forecast") and isinstance(data["forecast"].get("forecastday"), list):
-        if len(data["forecast"]["forecastday"]) > 0:
-            forecastday = data["forecast"]["forecastday"][0]
+    if data.get("forecast") and isinstance(data["forecast"].get("forecastday"), list) and len(data["forecast"]["forecastday"]) > 0:
+        forecastday = data["forecast"]["forecastday"][0]
 
     row["forecastday_date"] = forecastday.get("date") if forecastday else None
 
@@ -87,12 +97,18 @@ def weather_dict_to_raw_df(data: dict) -> pd.DataFrame:
 
     return pd.DataFrame([row])
 
-def extract_weather_data(**context):
-    """Extract: Получение данных о погоде и сохранение в JSON файл"""
+def extract_weather_data(**context: dict[str, Any]) -> str:
+    """
+    Получение данных о погоде и сохранение в JSON файл.
+
+    :param context: Контекст DAG, содержащий информацию о выполнении задачи.
+    :return: Путь к сохраненному JSON файлу.
+    """
     execution_date = context["ds"]  # Дата выполнения в формате YYYY-MM-DD
 
     # Создаем директорию для файлов если её нет
-    os.makedirs("/tmp/weather_data", exist_ok=True)
+    weather_data_path = Path("/tmp/weather_data")
+    weather_data_path.mkdir(parents=True, exist_ok=True)
 
     # Получаем данные о погоде
     weather_data = get_weather_history(
@@ -102,17 +118,22 @@ def extract_weather_data(**context):
     )
 
     # Сохраняем в JSON файл
-    json_file_path = f"/tmp/weather_data/weather_{execution_date}.json"
+    json_file_path = weather_data_path / f"weather_{execution_date}.json"
     with open(json_file_path, "w", encoding="utf-8") as f:
         json.dump(weather_data, f, ensure_ascii=False, indent=2)
 
     print(f"Weather data saved to {json_file_path}")
-    return json_file_path
+    return str(json_file_path)
 
-def transform_weather_data(**context):
-    """Transform: Преобразование JSON в CSV"""
+def transform_weather_data(**context: dict[str, Any]) -> str:
+    """
+    Преобразование JSON в CSV.
+
+    :param context: Контекст DAG, содержащий информацию о выполнении задачи.
+    :return: Путь к сохраненному CSV файлу.
+    """
     execution_date = context["ds"]
-    json_file_path = f"/tmp/weather_data/weather_{execution_date}.json"
+    json_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.json")
 
     # Читаем JSON файл
     with open(json_file_path, encoding="utf-8") as f:
@@ -122,16 +143,21 @@ def transform_weather_data(**context):
     df = weather_dict_to_raw_df(weather_data)
 
     # Сохраняем в CSV файл
-    csv_file_path = f"/tmp/weather_data/weather_{execution_date}.csv"
+    csv_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.csv")
     df.to_csv(csv_file_path, index=False, encoding="utf-8")
 
     print(f"Transformed data saved to {csv_file_path}")
-    return csv_file_path
+    return str(csv_file_path)
 
-def load_to_postgres(**context):
-    """Load: Загрузка данных в PostgreSQL"""
+def load_to_postgres(**context: dict[str, Any]) -> None:
+    """
+    Загрузка данных в PostgreSQL.
+
+    :param context: Контекст DAG, содержащий информацию о выполнении задачи.
+    :return: Функция ничего не возвращает, она производит загрузку данных в базу.
+    """
     execution_date = context["ds"]
-    csv_file_path = f"/tmp/weather_data/weather_{execution_date}.csv"
+    csv_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.csv")
 
     # Читаем CSV файл
     df = pd.read_csv(csv_file_path, encoding="utf-8")
@@ -145,16 +171,21 @@ def load_to_postgres(**context):
 
     print(f"Data loaded to PostgreSQL from {csv_file_path}")
 
-def cleanup_files(**context):
-    """Cleanup: Удаление временных файлов"""
+def cleanup_files(**context: dict[str, Any]) -> None:
+    """
+    Удаление временных файлов.
+
+    :param context: Контекст DAG, содержащий информацию о выполнении задачи.
+    :return: Функция ничего не возвращает, она производит очистку временных файлов.
+    """
     execution_date = context["ds"]
-    json_file_path = f"/tmp/weather_data/weather_{execution_date}.json"
-    csv_file_path = f"/tmp/weather_data/weather_{execution_date}.csv"
+    json_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.json")
+    csv_file_path = Path(f"/tmp/weather_data/weather_{execution_date}.csv")
 
     # Удаляем файлы если они существуют
     for file_path in [json_file_path, csv_file_path]:
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        if file_path.exists():
+            file_path.unlink()
             print(f"Removed file: {file_path}")
 
 with DAG(
