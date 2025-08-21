@@ -13,9 +13,9 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from minio import Minio
 
+MINIO_ENDPOINT = "minio:9000"
 MINIO_A_KEY = Variable.get("access_key")
 MINIO_S_KEY = Variable.get("secret_key")
-MINIO_ENDPOINT = Variable.get("minio_endpoint", "localhost:9000")  # добавьте endpoint в Variables
 WEATHER_API_KEY = Variable.get("weather_api_key")
 
 default_args = {
