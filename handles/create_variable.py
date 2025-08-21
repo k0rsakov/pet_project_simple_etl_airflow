@@ -1,5 +1,7 @@
-import requests
 import json
+
+import requests
+
 
 def create_airflow_variable(
     key: str | None= None,
@@ -65,6 +67,14 @@ create_airflow_variable(
     value="secret_key",
     key="m0lpCnpOM3wtyloX7FeWskDOuZ9CRPZJBXhY475f",
     description="secret_key для S3 бакета",
+    user_name="airflow",
+    password="airflow",  # noqa: S106
+)
+
+create_airflow_variable(
+    key="weather_api_key",
+    value="",
+    description="API ключ для weatherapi.com",
     user_name="airflow",
     password="airflow",  # noqa: S106
 )
