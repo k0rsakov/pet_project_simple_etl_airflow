@@ -1,4 +1,4 @@
-# Разбор и объяснение лучших и худших практик в создании ETL. (Analysis and explanation of the best and worst practices in creating ETL.)
+# ETL Лучшие Практики: Полное руководство для начинающих и не только (ETL Best Practices)
 
 Ты только начинаешь создавать ETL процессы или ты хочешь улучшить свои навыки в создании ETL процессов? Тогда
 это [видео](https://youtu.be/ZZp6W1KWRxM) для тебя. В этом [видео](https://youtu.be/ZZp6W1KWRxM) я покажу худшие и
