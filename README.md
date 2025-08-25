@@ -5,11 +5,11 @@
 лучшие практики при создании ETL-процессов. Также мы разберём что такое "плохо" и что такое "хорошо".
 
 📌 Что вы узнаете:
-• Как собирать RAW данные
-• Как работать с API
-• Лучшие практики для создания ETL-процессов
-• Худшие практики для создания ETL-процессов
-• Рекомендации при создании ETL-процессов
+- Как собирать RAW данные
+- Как работать с API
+- Лучшие практики для создания ETL-процессов
+- Худшие практики для создания ETL-процессов
+- Рекомендации при создании ETL-процессов
 
 💻 Менторство/консультации по IT – https://korsak0v.notion.site/Data-Engineer-185c62fdf79345eb9da9928356884ea0
 
@@ -20,24 +20,24 @@
 🔔 Подписывайтесь и ставьте лайк, если хотите больше практических видео!
 
 Ссылки:
-• Менторство/консультации по IT – https://korsak0v.notion.site/Data-Engineer-185c62fdf79345eb9da9928356884ea0
-• TG канал – https://t.me/DataLikeQWERTY
-• Instagram – https://www.instagram.com/i__korsakov/
-• Habr – https://habr.com/ru/users/k0rsakov/publications/articles/
-• Git-репозиторий из видео – https://github.com/k0rsakov/pet_project_simple_etl_airflow
-• Лучший пет-проект для дата-инженера (The best pet-project for a data-engineer) – https://youtu.be/MQPHgUQvKnI
-• Как зайти в контейнер? / How do I enter the container? – https://youtu.be/bDY7M0YHakk
-• Что такое контекст DAG и как его использовать? / What is a DAG context and how to use
+- Менторство/консультации по IT – https://korsak0v.notion.site/Data-Engineer-185c62fdf79345eb9da9928356884ea0
+- TG канал – https://t.me/DataLikeQWERTY
+- Instagram – https://www.instagram.com/i__korsakov/
+- Habr – https://habr.com/ru/users/k0rsakov/publications/articles/
+- Git-репозиторий из видео – https://github.com/k0rsakov/pet_project_simple_etl_airflow
+- Лучший пет-проект для дата-инженера (The best pet-project for a data-engineer) – https://youtu.be/MQPHgUQvKnI
+- Как зайти в контейнер? / How do I enter the container? – https://youtu.be/bDY7M0YHakk
+- Что такое контекст DAG и как его использовать? / What is a DAG context and how to use
 it? – https://youtu.be/TiSFGmLV8l0
-• Пишем первый простой DAG / Writing the first simple DAG – https://youtu.be/Wt3IwjsqzAI
-• Как установить пакеты в Airflow с использованием Dockerfile? / How install packages in
+- Пишем первый простой DAG / Writing the first simple DAG – https://youtu.be/Wt3IwjsqzAI
+- Как установить пакеты в Airflow с использованием Dockerfile? / How install packages in
 Airflow? – https://youtu.be/Bazz6N6X8Ek
-• Как запустить Airflow в Docker? / How do I run Airflow in Docker? – https://youtu.be/RCKeW35WY-o
-• Что такое Docker network и как это работает? / What is the Docker network and how does it
+- Как запустить Airflow в Docker? / How do I run Airflow in Docker? – https://youtu.be/RCKeW35WY-o
+- Что такое Docker network и как это работает? / What is the Docker network and how does it
 work? – https://youtu.be/gn_dXV9HrIo
-• Как загрузить данные в PostgreSQL при помощи Python? / How do upload data to PostgreSQL using
+- Как загрузить данные в PostgreSQL при помощи Python? / How do upload data to PostgreSQL using
 Python – https://youtu.be/I_PXPlVFmPw
-• Как работает S3 и зачем он нужен в 2025 году? – https://youtu.be/Vfe5H3bD2SQ
+- Как работает S3 и зачем он нужен в 2025 году? – https://youtu.be/Vfe5H3bD2SQ
 
 Тайминги:
 00:00 – Начало
