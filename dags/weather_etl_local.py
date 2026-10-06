@@ -17,7 +17,7 @@ WEATHER_API_KEY = Variable.get("weather_api_key")
 default_args = {
     "owner": "i.korsakov",
     "depends_on_past": True,
-    "start_date": pendulum.datetime(2025, 8, 10),
+    "start_date": pendulum.datetime(year=2026, month=10, day=1),
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
